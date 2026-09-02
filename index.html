@@ -107,10 +107,10 @@ return new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', year:'numeric', 
 }
 function minutesToLabel(min){
 if (min === null || min === undefined) return '-';
-const h = Math.floor(min/60), m = min%60;
-if (h && m) return `${h}시간 ${m}분`;
-if (h) return `${h}시간`;
-return `${m}분`;
+const sign = min < 0 ? '-' : ''; const abs = Math.abs(min); const h = Math.floor(abs/60), m = abs%60;
+if (h && m) return `${sign}${h}시간 ${m}분`;
+if (h) return `${sign}${h}시간`;
+return `${sign}${m}분`;
 }
 function priorityLabel(p){ return {high:'높음', medium:'보통', low:'낮음'}[p] || p || '-'; }
 function uid(){ return 'id-' + Math.random().toString(36).slice(2,10); }
