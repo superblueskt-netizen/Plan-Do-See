@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>플랜두씨 다이어리 1</title>
+<style>
+:root{
+--bg:#faf8f5; --panel:#ffffff; --ink:#2b2620; --muted:#7a7268;
+--line:#e6e0d6; --accent:#8a5a44; --accent-ink:#ffffff;
+--ok:#3f7a4f; --warn:#b3552b; --danger:#a5342a; --chip:#f1ece3;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.5;}
+.banner{background:#fff4e0;border-bottom:1px solid #e8cf9c;color:#5c4419;padding:10px 16px;font-size:13.5px;text-align:center;}
+header.app{padding:20px 20px 0;max-width:980px;margin:0 auto;}
+h1{font-size:20px;margin:0 0 4px;}
+.sub{color:var(--muted);font-size:13px;margin-bottom:14px;}
+nav.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);max-width:980px;margin:0 auto;padding:0 20px;}
+nav.tabs button{background:none;border:none;padding:10px 14px;font-size:14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;}
+nav.tabs button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+main{max-width:980px;margin:0 auto;padding:18px 20px 60px;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px;}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.row > *{flex:1 1 160px;}
+label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px;}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink);}
+textarea{resize:vertical;min-height:60px;}
+button.btn{background:var(--accent);color:var(--accent-ink);border:none;padding:8px 14px;border-radius:6px;font-size:13.5px;cursor:pointer;}
+button.btn.secondary{background:var(--chip);color:var(--ink);}
+button.btn.ghost{background:none;color:var(--accent);padding:6px 8px;}
+button.btn.danger{background:var(--danger);color:#fff;}
+button.btn:disabled{opacity:.5;cursor:not-allowed;}
+button.linknum{background:none;border:none;color:var(--accent);font-size:22px;font-weight:700;cursor:pointer;padding:0;}
+.field{margin-bottom:10px;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+.stat{background:var(--chip);border-radius:8px;padding:12px;text-align:center;}
+.stat .lbl{font-size:12px;color:var(--muted);margin-bottom:4px;}
+table{width:100%;border-collapse:collapse;font-size:13.5px;}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top;}
+th{color:var(--muted);font-weight:600;font-size:12.5px;}
+.pill{display:inline-block;background:var(--chip);border-radius:999px;padding:2px 9px;font-size:12px;margin-right:4px;}
+.pill.done{background:#e3f0e5;color:var(--ok);}
+.pill.high{background:#fbe4de;color:var(--danger);}
+.pill.medium{background:#fdefd9;color:var(--warn);}
+.pill.low{background:#e6f0f7;color:#345a7a;}
+.list-item{border-bottom:1px solid var(--line);padding:10px 2px;}
+.list-item:last-child{border-bottom:none;}
+.list-item h4{margin:0 0 4px;font-size:14.5px;}
+.meta{font-size:12px;color:var(--muted);}
+.actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.empty{color:var(--muted);font-size:13.5px;padding:16px 4px;}
+.modal-back{position:fixed;inset:0;background:rgba(30,25,18,.35);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;z-index:50;}
+.modal{background:#fff;border-radius:10px;padding:20px;max-width:560px;width:100%;}
+.modal h3{margin-top:0;}
+.close-x{float:right;background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);}
+.sort-label{font-size:12.5px;color:var(--muted);margin:6px 0;}
+.note{font-size:12.5px;color:var(--muted);background:#f6f2ec;border-radius:6px;padding:8px 10px;margin-bottom:10px;}
+.revision{border-left:3px solid var(--line);padding:6px 10px;margin-bottom:6px;font-size:12.5px;color:var(--muted);}
+.config-warning{max-width:640px;margin:60px auto;padding:24px;background:#fff;border:1px solid #e8cf9c;border-radius:10px;}
+.drill-back{margin-bottom:10px;}
+code{background:#f1ece3;padding:1px 5px;border-radius:4px;font-size:12.5px;}
+</style>
+</head>
+<body>
+
+<div class="banner">지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요.</div>
+
+<div id="app"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+/* =========================================================================
+설정 — Supabase 프로젝트 생성 후 아래 두 값만 채우면 바로 동작합니다.
+anon(public) key는 RLS 정책으로 보호되는 "공개용" 키이며 브라우저에
+그대로 노출되어도 되는 값입니다. service_role 키는 절대 여기 넣지 않습니다.
+========================================================================= */
+const SUPABASE_URL = "https://ahyhrwwhewfivwfxwowc.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable__VWW3IRDFWyLg3axyhiOCA_Mir35LQV";
+
+const app = document.getElementById('app');
+
+if (!SUPABASE_URL || SUPABASE_URL.startsWith('__') || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.startsWith('__')) {
+app.innerHTML = `<div class="config-warning">
+<h2>설정이 필요합니다</h2>
+<p>이 파일 상단의 <code>SUPABASE_URL</code>과 <code>SUPABASE_ANON_KEY</code> 값을 본인의 Supabase 프로젝트 값으로 바꿔주세요.
+(Supabase 대시보드 → Project Settings → API)</p>
+<p>그리고 <code>supabase-schema.sql</code>과 <code>seed.sql</code>을 SQL Editor에서 순서대로 실행해야 합니다.</p>
+</div>`;
+throw new Error('Supabase config missing');
+}
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---------------------------- 유틸 ---------------------------------- */
+function esc(s){
+if (s === null || s === undefined) return '';
+return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function todaySeoulISODate(){
+return new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
+}
+function toKST(ts){
+if (!ts) return '-';
+const d = new Date(ts);
+return new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}).format(d) + ' (서울)';
+}
+function minutesToLabel(min){
+if (min === null || min === undefined) return '-';
+const h = Math.floor(min/60), m = min%60;
+if (h && m) return `${h}시간 ${m}분`;
+if (h) return `${h}시간`;
+return `${m}분`;
+}
+function priorityLabel(p){ return {high:'높음', medium:'보통', low:'낮음'}[p] || p || '-'; }
+function uid(){ return 'id-' + Math.random().toString(36).slice(2,10); }
+
+/* ---------------------------- 상태 ------------------------------------ */
+const state = {
+tab: 'plan',
+plans: [],
+currentPlanId: null,
+todos: [],
+todoFilters: { q:'', status:'all', priority:'all', tag:'' },
+todoSort: 'deadline_asc',
+execByTodo: {},
+planRevisions: [],
+modal: null,
+drilldown: null,
+review: null,
+loading: false,
+};
+
+async function refreshPlans(){
+const { data, error } = await sb.from('plans').select('*').is('deleted_at', null).order('created_at', {ascending:false}).order('id');
+if (error) { console.error(error); return; }
+state.plans = data || [];
+if (!state.currentPlanId && state.plans.length) state.currentPlanId = state.plans[0].id;
+}
+
+async function refreshTodos(){
+if (!state.currentPlanId) { state.todos = []; return; }
+let q = sb.from('todos').select('*').eq('plan_id', state.currentPlanId).is('deleted_at', null);
+const f = state.todoFilters;
+if (f.q) q = q.ilike('title', `%${f.q}%`);
+if (f.status !== 'all') q = q.eq('status', f.status);
+if (f.priority !== 'all') q = q.eq('priority', f.priority);
+if (f.tag) q = q.contains('tags', [f.tag]);
+
+const sortMap = {
+deadline_asc: ['deadline', {ascending:true, nullsFirst:false}],
+deadline_desc: ['deadline', {ascending:false, nullsFirst:false}],
+estimated_desc: ['estimated_minutes', {ascending:false}],
+created_desc: ['created_at', {ascending:false}],
+};
+const [col, opts] = sortMap[state.todoSort] || sortMap.deadline_asc;
+q = q.order(col, opts).order('id', {ascending:true});
+
+const { data, error } = await q;
+if (error) { console.error(error); return; }
+state.todos = data || [];
+}
+
+async function refreshPlanRevisions(planId){
+const { data, error } = await sb.from('plan_revisions').select('*').eq('plan_id', planId).order('revised_at', {ascending:false});
+if (error) { console.error(error); return; }
+state.planRevisions = data || [];
+}
+
+async function refreshExecRecords(todoId){
+const { data, error } = await sb.from('execution_records').select('*').eq('todo_id', todoId).order('created_at', {ascending:false});
+if (error) { console.error(error); return; }
+state.execByTodo[todoId] = data || [];
+}
+
+/* ---------------------------- 계획 CRUD -------------------------------- */
+async function createPlan(fields){
+const { data: fb } = await sb.from('review_feedback').select('*').is('consumed_at', null).order('created_at', {ascending:false}).limit(1);
+const carried = (fb && fb[0]) ? fb[0].note : null;
+
+const { data, error } = await sb.from('plans').insert({...fields, carried_note: carried}).select();
+if (error) { alert('계획 저장 실패: ' + error.message); return; }
+if (fb && fb[0]) {
+await sb.from('review_feedback').update({consumed_at: new Date().toISOString()}).eq('id', fb[0].id);
+}
+await refreshPlans();
+state.currentPlanId = data[0].id;
+render();
+}
+
+async function updatePlan(id, fields){
+const { error } = await sb.from('plans').update(fields).eq('id', id);
+if (error) { alert('계획 수정 실패: ' + error.message); return; }
+await refreshPlans();
+render();
+}
+
+/* ---------------------------- 할 일 CRUD -------------------------------- */
+async function createTodo(fields){
+const { error } = await sb.from('todos').insert({...fields, plan_id: state.currentPlanId});
+if (error) { alert('할 일 저장 실패: ' + error.message); return; }
+await refreshTodos();
+render();
+}
+async function updateTodo(id, fields){
+const { error } = await sb.from('todos').update({...fields, updated_at: new Date().toISOString()}).eq('id', id);
+if (error) { alert('할 일 수정 실패: ' + error.message); return; }
+await refreshTodos();
+render();
+}
+async function deleteTodo(id){
+if (!confirm('이 할 일을 지울까요?')) return;
+const { error } = await sb.from('todos').update({deleted_at: new Date().toISOString()}).eq('id', id);
+if (error) { alert('삭제 실패: ' + error.message); return; }
+await refreshTodos();
+render();
+}
+async function completeTodo(id, btn){
+if (btn) btn.disabled = true;
+try{
+const { data, error } = await sb.from('todos')
+.update({status:'done', completed_at: new Date().toISOString(), updated_at: new Date().toISOString()})
+.eq('id', id).eq('status','in_progress')
+.select();
+if (error) { alert('완료 처리 실패: ' + error.message); return; }
+if (data && data.length === 1) {
+await sb.from('execution_records').insert({todo_id:id, kind:'completion', ended_at:new Date().toISOString()});
+}
+await refreshTodos();
+render();
+} finally { if (btn) btn.disabled = false; }
+}
+async function revertTodo(id){
+const { error } = await sb.from('todos').update({status:'in_progress', completed_at:null, updated_at:new Date().toISOString()}).eq('id', id).eq('status','done');
+if (error) { alert('되돌리기 실패: ' + error.message); return; }
+await refreshTodos();
+render();
+}
+
+/* ---------------------------- 실행 기록 -------------------------------- */
+async function addExecRecord(todoId, fields){
+const { error } = await sb.from('execution_records').insert({todo_id:todoId, kind:'session', ...fields});
+if (error) { alert('실행 기록 저장 실패: ' + error.message); return; }
+await refreshExecRecords(todoId);
+render();
+}
+
+/* ---------------------------- 돌아보기 집계 ------------------------------ */
+async function computeReview(planId){
+const { data: todos } = await sb.from('todos').select('*').eq('plan_id', planId).is('deleted_at', null);
+const list = todos || [];
+const ids = list.map(t=>t.id);
+let sessions = [];
+if (ids.length){
+const { data } = await sb.from('execution_records').select('*').in('todo_id', ids).eq('kind','session');
+sessions = data || [];
+}
+const today = todaySeoulISODate();
+const planCount = list.length;
+const doneCount = list.filter(t=>t.status==='done').length;
+const delayed = list.filter(t=>t.status!=='done' && t.deadline && t.deadline < today);
+const blockedTodoIds = new Set(sessions.filter(s=>s.blocker_reason && s.blocker_reason.trim()!=='').map(s=>s.todo_id));
+const estimatedSum = list.reduce((a,t)=>a+(t.estimated_minutes||0),0);
+const actualByTodo = {};
+sessions.forEach(s=>{ actualByTodo[s.todo_id] = (actualByTodo[s.todo_id]||0) + (s.actual_minutes||0); });
+const actualSum = Object.values(actualByTodo).reduce((a,b)=>a+b,0);
+
+const { data: fbRows } = await sb.from('review_feedback').select('*').eq('plan_id', planId).order('created_at',{ascending:false});
+
+state.review = {
+planId, list, sessions, today,
+planCount, doneCount,
+delayed, delayedCount: delayed.length,
+blockedTodoIds, blockedCount: blockedTodoIds.size,
+estimatedSum, actualSum, diff: actualSum - estimatedSum,
+actualByTodo,
+feedback: fbRows || [],
+};
+}
+
+async function saveReviewNote(planId, note){
+if (!note.trim()) return;
+const { error } = await sb.from('review_feedback').insert({plan_id:planId, note:note.trim()});
+if (error) { alert('저장 실패: ' + error.message); return; }
+await computeReview(planId);
+render();
+}
+
+/* ---------------------------- 내보내기 ---------------------------------- */
+async function exportAll(){
+const tables = ['plans','plan_revisions','todos','execution_records','review_feedback'];
+const out = { exported_at: new Date().toISOString(), exported_at_kst: toKST(new Date().toISOString()) };
+for (const t of tables){
+const { data, error } = await sb.from(t).select('*');
+out[t] = error ? [] : data;
+}
+const blob = new Blob([JSON.stringify(out, null, 2)], {type:'application/json'});
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.href = url; a.download = `plando-diary-export-${todaySeoulISODate()}.json`;
+document.body.appendChild(a); a.click(); a.remove();
+URL.revokeObjectURL(url);
+}
+
+/* ---------------------------- 렌더링 ------------------------------------ */
+async function setTab(t){
+state.tab = t; state.drilldown = null;
+if (t === 'review' && state.currentPlanId && (!state.review || state.review.planId !== state.currentPlanId)) {
+await computeReview(state.currentPlanId);
+}
+render();
+}
+
+function render(){
+const p = state.plans.find(x=>x.id===state.currentPlanId);
+app.innerHTML = `
+<header class="app">
+<h1>플랜두씨 다이어리 1</h1>
+<div class="sub">계획(Plan) → 실제로 한 일(Do) → 돌아보기(See)가 하나로 이어지는 다이어리</div>
+</header>
+<nav class="tabs">
+${tabBtn('plan','계획')}${tabBtn('todo','할 일')}${tabBtn('review','돌아보기')}${tabBtn('export','내보내기')}
+</nav>
+<main id="main"></main>
+`;
+const main = document.getElementById('main');
+if (state.tab==='plan') main.innerHTML = renderPlanTab();
+else if (state.tab==='todo') main.innerHTML = renderTodoTab();
+else if (state.tab==='review') main.innerHTML = renderReviewTab();
+else if (state.tab==='export') main.innerHTML = renderExportTab();
+
+if (state.modal) renderModal();
+bindEvents();
+}
+function tabBtn(id,label){
+return `<button class="${state.tab===id?'active':''}" data-tab="${id}">${label}</button>`;
+}
+
+function renderPlanTab(){
+const rows = state.plans.map(p => `
+<div class="list-item">
+<h4>${esc(p.title)} ${p.id===state.currentPlanId?'<span class="pill">보는 중</span>':''}</h4>
+<div class="meta">${esc(p.period_start)} ~ ${esc(p.period_end)} · 우선순위 ${priorityLabel(p.priority)} · 예상 ${p.estimated_hours}시간</div>
+<div class="meta">성공 기준: ${esc(p.success_criteria)}</div>
+${p.carried_note ? `<div class="meta">↳ 이전 회고에서 넘어온 점: ${esc(p.carried_note)}</div>` : ''}
+<div class="actions">
+<button class="btn secondary" data-act="select-plan" data-id="${p.id}">이 계획 보기</button>
+<button class="btn ghost" data-act="edit-plan" data-id="${p.id}">수정</button>
+<button class="btn ghost" data-act="history-plan" data-id="${p.id}">수정 이력</button>
+</div>
+</div>
+`).join('') || '<div class="empty">아직 계획이 없습니다. 오른쪽 위 버튼으로 첫 계획을 만들어 보세요.</div>';
+
+return `
+<div class="card">
+<div class="row" style="justify-content:space-between;">
+<div><strong>내 계획</strong></div>
+<button class="btn" data-act="new-plan">+ 새 계획</button>
+</div>
+</div>
+<div class="card">${rows}</div>
+${state.planRevisions && state.modal===null && state._historyFor ? renderRevisionList() : ''}
+`;
+}
+function renderRevisionList(){
+if (!state.planRevisions.length) return `<div class="card"><div class="empty">아직 수정 이력이 없습니다 (한 번도 고치지 않았습니다).</div></div>`;
+return `<div class="card"><strong>수정 이력 (고치기 전 값들)</strong>` +
+state.planRevisions.map(r => `
+<div class="revision">
+<div>${toKST(r.revised_at)} 이전 값</div>
+<div>제목: ${esc(r.title)} · 기간 ${esc(r.period_start)}~${esc(r.period_end)} · 우선순위 ${priorityLabel(r.priority)} · 예상 ${r.estimated_hours}시간</div>
+<div>성공 기준: ${esc(r.success_criteria)}</div>
+</div>`).join('') + `</div>`;
+}
+
+function renderTodoTab(){
+if (!state.currentPlanId) return `<div class="card"><div class="empty">먼저 '계획' 탭에서 계획을 하나 골라주세요.</div></div>`;
+const plan = state.plans.find(x=>x.id===state.currentPlanId);
+const sortLabels = {deadline_asc:'마감일 빠른순', deadline_desc:'마감일 늦은순', estimated_desc:'예상 시간 큰순', created_desc:'만든 순(최신)'};
+const items = state.todos.map(t => `
+<div class="list-item">
+<h4>${esc(t.title)} ${t.status==='done'?'<span class="pill done">완료</span>':''} ${t.priority?`<span class="pill ${t.priority}">${priorityLabel(t.priority)}</span>`:''}</h4>
+<div class="meta">마감일 ${esc(t.deadline)||'-'} · 예상 ${minutesToLabel(t.estimated_minutes)} ${t.tags && t.tags.length?('· '+t.tags.map(tag=>`<span class="pill">${esc(tag)}</span>`).join('')):''}</div>
+<div class="actions">
+${t.status==='done'
+? `<button class="btn secondary" data-act="revert-todo" data-id="${t.id}">되돌리기</button>`
+: `<button class="btn" data-act="complete-todo" data-id="${t.id}">완료</button>`}
+<button class="btn ghost" data-act="edit-todo" data-id="${t.id}">수정</button>
+<button class="btn ghost" data-act="log-todo" data-id="${t.id}">실행 기록</button>
+<button class="btn ghost danger" data-act="delete-todo" data-id="${t.id}">삭제</button>
+</div>
+${state.execByTodo[t.id] ? renderExecList(t.id) : ''}
+</div>
+`).join('') || '<div class="empty">할 일이 없습니다. 5개 이상 만들어 보세요.</div>';
+
+return `
+<div class="card">
+<div class="meta">현재 계획: <strong>${esc(plan?.title||'')}</strong></div>
+</div>
+<div class="card">
+<div class="row">
+<div><label>검색</label><input id="f-q" value="${esc(state.todoFilters.q)}" placeholder="제목 검색"/></div>
+<div><label>상태</label>
+<select id="f-status">
+<option value="all" ${state.todoFilters.status==='all'?'selected':''}>전체</option>
+<option value="in_progress" ${state.todoFilters.status==='in_progress'?'selected':''}>진행 중</option>
+<option value="done" ${state.todoFilters.status==='done'?'selected':''}>완료</option>
+</select>
+</div>
+<div><label>우선순위</label>
+<select id="f-priority">
+<option value="all" ${state.todoFilters.priority==='all'?'selected':''}>전체</option>
+<option value="high" ${state.todoFilters.priority==='high'?'selected':''}>높음</option>
+<option value="medium" ${state.todoFilters.priority==='medium'?'selected':''}>보통</option>
+<option value="low" ${state.todoFilters.priority==='low'?'selected':''}>낮음</option>
+</select>
+</div>
+<div><label>태그</label><input id="f-tag" value="${esc(state.todoFilters.tag)}" placeholder="예: 디자인"/></div>
+<div><label>정렬</label>
+<select id="f-sort">
+${Object.entries(sortLabels).map(([k,v])=>`<option value="${k}" ${state.todoSort===k?'selected':''}>${v}</option>`).join('')}
+</select>
+</div>
+</div>
+<div class="sort-label">정렬 기준: ${sortLabels[state.todoSort]}</div>
+<button class="btn secondary" data-act="new-todo" style="margin-top:8px;">+ 새 할 일</button>
+</div>
+<div class="card">${items}</div>
+`;
+}
+function renderExecList(todoId){
+const recs = state.execByTodo[todoId] || [];
+if (!recs.length) return `<div class="note">아직 실행 기록이 없습니다.</div>`;
+return `<div class="note">` + recs.map(r => r.kind==='completion'
+? `· <strong>완료 처리</strong> ${toKST(r.created_at)}`
+: `· 세션 ${toKST(r.started_at)} ~ ${toKST(r.ended_at)} · 실제 ${minutesToLabel(r.actual_minutes)} ${r.blocker_reason?('· 막힘: '+esc(r.blocker_reason)):''}`
+).join('<br/>') + `</div>`;
+}
+
+function renderReviewTab(){
+if (!state.currentPlanId) return `<div class="card"><div class="empty">먼저 '계획' 탭에서 계획을 하나 골라주세요.</div></div>`;
+if (state.drilldown) return renderDrilldown();
+const r = state.review;
+if (!r) return `<div class="card"><div class="empty">불러오는 중...</div></div>`;
+return `
+<div class="card">
+<div class="grid">
+<div class="stat"><div class="lbl">계획 수</div><button class="linknum" data-act="drill" data-kind="all">${r.planCount}</button></div>
+<div class="stat"><div class="lbl">완료 수</div><button class="linknum" data-act="drill" data-kind="done">${r.doneCount}</button></div>
+<div class="stat"><div class="lbl">지연 수</div><button class="linknum" data-act="drill" data-kind="delayed">${r.delayedCount}</button></div>
+<div class="stat"><div class="lbl">막힘 수</div><button class="linknum" data-act="drill" data-kind="blocked">${r.blockedCount}</button></div>
+</div>
+</div>
+<div class="card">
+<div class="grid">
+<div class="stat"><div class="lbl">예상 시간 합</div><button class="linknum" data-act="drill" data-kind="time" style="font-size:16px;">${minutesToLabel(r.estimatedSum)}</button></div>
+<div class="stat"><div class="lbl">실제 시간 합</div><button class="linknum" data-act="drill" data-kind="time" style="font-size:16px;">${minutesToLabel(r.actualSum)}</button></div>
+<div class="stat"><div class="lbl">차이(실제-예상)</div><button class="linknum" data-act="drill" data-kind="time" style="font-size:16px;color:${r.diff>0?'var(--danger)':'var(--ok)'};">${r.diff>=0?'+':''}${minutesToLabel(r.diff)}</button></div>
+
+</div>
+<div class="meta" style="margin-top:8px;">기준일(서울 시간): ${r.today}</div>
+</div>
+<div class="card">
+<strong>다음 계획으로 넘길 한 줄</strong>
+<div class="field" style="margin-top:8px;">
+<textarea id="review-note" placeholder="이번 계획을 보며 고칠 점 한 가지를 적어주세요"></textarea>
+</div>
+<button class="btn" data-act="save-review-note">저장 → 다음 계획에 넘기기</button>
+${r.feedback.length ? `<div style="margin-top:10px;">` + r.feedback.map(f=>`<div class="meta">· ${esc(f.note)} (${toKST(f.created_at)}) ${f.consumed_at?'— 다음 계획에 반영됨':'— 아직 다음 계획에 반영 전'}</div>`).join('') + `</div>` : ''}
+</div>
+`;
+}
+function renderDrilldown(){
+const r = state.review; const d = state.drilldown;
+let rowsHtml = '';
+if (d.kind === 'all' || d.kind === 'done') {
+const list = d.kind==='done' ? r.list.filter(t=>t.status==='done') : r.list;
+rowsHtml = `<table><tr><th>할 일</th><th>상태</th><th>마감일</th></tr>` +
+list.map(t=>`<tr><td>${esc(t.title)}</td><td>${t.status==='done'?'완료':'진행 중'}</td><td>${esc(t.deadline)||'-'}</td></tr>`).join('') + `</table>`;
+} else if (d.kind === 'delayed') {
+rowsHtml = `<table><tr><th>할 일</th><th>마감일</th><th>오늘(서울)</th></tr>` +
+r.delayed.map(t=>`<tr><td>${esc(t.title)}</td><td>${esc(t.deadline)}</td><td>${r.today}</td></tr>`).join('') + `</table>`;
+} else if (d.kind === 'blocked') {
+const rows = r.sessions.filter(s=>s.blocker_reason && s.blocker_reason.trim()!=='');
+rowsHtml = `<table><tr><th>할 일</th><th>막힌 이유</th><th>기록 시각</th></tr>` +
+rows.map(s=>{ const t = r.list.find(x=>x.id===s.todo_id); return `<tr><td>${esc(t?t.title:s.todo_id)}</td><td>${esc(s.blocker_reason)}</td><td>${toKST(s.created_at)}</td></tr>`; }).join('') + `</table>`;
+} else if (d.kind === 'time') {
+rowsHtml = `<table><tr><th>할 일</th><th>예상</th><th>실제</th><th>차이</th></tr>` +
+r.list.map(t=>{ const act = r.actualByTodo[t.id]||0; const diff = act-(t.estimated_minutes||0);
+return `<tr><td>${esc(t.title)}</td><td>${minutesToLabel(t.estimated_minutes)}</td><td>${minutesToLabel(act)}</td><td>${diff>=0?'+':''}${minutesToLabel(diff)}</td></tr>`; }).join('') + `</table>`;
+}
+return `<div class="card drill-back"><button class="btn secondary" data-act="drill-back">← 돌아보기로</button></div><div class="card">${rowsHtml || '<div class="empty">해당하는 기록이 없습니다.</div>'}</div>`;
+}
+
+function renderExportTab(){
+return `<div class="card">
+<strong>내 자료 내보내기</strong>
+<p class="meta">계획·할 일·실행 기록·돌아보기 메모를 파일 하나(JSON)로 내려받습니다.</p>
+<button class="btn" data-act="export-all">전체 자료 내보내기</button>
+</div>`;
+}
+
+/* ---------------------------- 모달(폼) ----------------------------------- */
+function openModal(type, payload){ state.modal = {type, payload}; render(); }
+function closeModal(){ state.modal = null; render(); }
+
+function renderModal(){
+const back = document.createElement('div');
+back.className = 'modal-back';
+back.innerHTML = `<div class="modal">${modalBody()}</div>`;
+document.body.appendChild(back);
+back.addEventListener('click', e => { if (e.target === back) closeModal(); });
+bindModalEvents(back);
+}
+function modalBody(){
+const {type, payload} = state.modal;
+if (type === 'new-plan' || type === 'edit-plan'){
+const p = payload || {};
+const isEdit = type==='edit-plan';
+return `
+<button class="close-x" data-act="close-modal">✕</button>
+<h3>${isEdit?'계획 수정':'새 계획'}</h3>
+${(!isEdit) ? carriedNoteHint() : ''}
+<div class="field"><label>제목</label><input id="m-title" value="${esc(p.title)}"/></div>
+<div class="row">
+<div class="field"><label>기간 시작</label><input id="m-start" type="date" value="${esc(p.period_start)}"/></div>
+<div class="field"><label>기간 종료</label><input id="m-end" type="date" value="${esc(p.period_end)}"/></div>
+</div>
+<div class="row">
+<div class="field"><label>우선순위</label>
+<select id="m-priority">
+${['high','medium','low'].map(v=>`<option value="${v}" ${p.priority===v?'selected':''}>${priorityLabel(v)}</option>`).join('')}
+</select>
+</div>
+<div class="field"><label>예상 시간(시간)</label><input id="m-hours" type="number" step="0.5" value="${p.estimated_hours ?? ''}"/></div>
+</div>
+<div class="field"><label>성공 기준</label><textarea id="m-criteria">${esc(p.success_criteria)}</textarea></div>
+<button class="btn" data-act="submit-plan" data-editid="${isEdit?p.id:''}">저장</button>
+`;
+}
+if (type === 'new-todo' || type === 'edit-todo'){
+const t = payload || {};
+const isEdit = type==='edit-todo';
+return `
+<button class="close-x" data-act="close-modal">✕</button>
+<h3>${isEdit?'할 일 수정':'새 할 일'}</h3>
+<div class="field"><label>제목</label><input id="m-title" value="${esc(t.title)}"/></div>
+<div class="row">
+<div class="field"><label>마감일</label><input id="m-deadline" type="date" value="${esc(t.deadline)}"/></div>
+<div class="field"><label>우선순위</label>
+<select id="m-priority">
+<option value="">없음</option>
+${['high','medium','low'].map(v=>`<option value="${v}" ${t.priority===v?'selected':''}>${priorityLabel(v)}</option>`).join('')}
+</select>
+</div>
+</div>
+<div class="row">
+<div class="field"><label>태그 (쉼표로 구분)</label><input id="m-tags" value="${esc((t.tags||[]).join(', '))}"/></div>
+<div class="field"><label>예상 시간(분)</label><input id="m-estmin" type="number" value="${t.estimated_minutes ?? 0}"/></div>
+</div>
+<button class="btn" data-act="submit-todo" data-editid="${isEdit?t.id:''}">저장</button>
+`;
+}
+if (type === 'log-todo'){
+const t = payload;
+return `
+<button class="close-x" data-act="close-modal">✕</button>
+<h3>실행 기록 추가 — ${esc(t.title)}</h3>
+<div class="row">
+<div class="field"><label>시작 시각</label><input id="m-started" type="datetime-local"/></div>
+<div class="field"><label>끝난 시각</label><input id="m-ended" type="datetime-local"/></div>
+</div>
+<div class="row">
+<div class="field"><label>실제로 걸린 시간(분, 비워두면 시작~끝으로 자동 계산)</label><input id="m-actual" type="number"/></div>
+</div>
+<div class="field"><label>막혔던 이유(있다면)</label><textarea id="m-blocker" placeholder="없으면 비워두세요"></textarea></div>
+<button class="btn" data-act="submit-log" data-id="${t.id}">저장</button>
+${renderExecList(t.id)}
+`;
+}
+return '';
+}
+function carriedNoteHint(){
+return `<div class="note" id="carried-hint">이전 회고 메모를 확인하는 중...</div>`;
+}
+
+/* ---------------------------- 이벤트 바인딩 -------------------------------- */
+function bindEvents(){
+document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+app.querySelectorAll('[data-act]').forEach(el => {
+el.onclick = async () => {
+const act = el.dataset.act, id = el.dataset.id;
+if (act==='new-plan') openModal('new-plan', {priority:'medium'});
+else if (act==='edit-plan') openModal('edit-plan', state.plans.find(p=>p.id===id));
+else if (act==='select-plan') { state.currentPlanId=id; state.review=null; await refreshTodos(); render(); }
+else if (act==='history-plan') { state._historyFor=id; await refreshPlanRevisions(id); render(); }
+else if (act==='new-todo') openModal('new-todo', {});
+else if (act==='edit-todo') openModal('edit-todo', state.todos.find(t=>t.id===id));
+else if (act==='log-todo') { openModal('log-todo', state.todos.find(t=>t.id===id)); await refreshExecRecords(id); render(); }
+else if (act==='complete-todo') completeTodo(id, el);
+else if (act==='revert-todo') revertTodo(id);
+else if (act==='delete-todo') deleteTodo(id);
+else if (act==='export-all') exportAll();
+else if (act==='save-review-note') { const v = document.getElementById('review-note').value; await saveReviewNote(state.currentPlanId, v); }
+else if (act==='drill') { state.drilldown = {kind: el.dataset.kind}; render(); }
+else if (act==='drill-back') { state.drilldown = null; render(); }
+};
+});
+document.querySelectorAll('#f-q,#f-status,#f-priority,#f-tag,#f-sort').forEach(el=>{
+if (!el) return;
+el.onchange = async () => {
+state.todoFilters.q = document.getElementById('f-q').value;
+state.todoFilters.status = document.getElementById('f-status').value;
+state.todoFilters.priority = document.getElementById('f-priority').value;
+state.todoFilters.tag = document.getElementById('f-tag').value;
+state.todoSort = document.getElementById('f-sort').value;
+await refreshTodos(); render();
+};
+if (el.id==='f-q') el.oninput = debounce(el.onchange, 350);
+});
+}
+function bindModalEvents(back){
+back.querySelectorAll('[data-act]').forEach(el=>{
+el.onclick = async (e) => {
+e.stopPropagation();
+const act = el.dataset.act;
+if (act==='close-modal') closeModal();
+else if (act==='submit-plan') {
+const fields = {
+title: document.getElementById('m-title').value.trim(),
+period_start: document.getElementById('m-start').value,
+period_end: document.getElementById('m-end').value,
+priority: document.getElementById('m-priority').value,
+estimated_hours: parseFloat(document.getElementById('m-hours').value || '0'),
+success_criteria: document.getElementById('m-criteria').value.trim(),
+};
+if (!fields.title || !fields.period_start || !fields.period_end || !fields.success_criteria) { alert('제목, 기간, 성공 기준은 꼭 채워주세요.'); return; }
+const editId = el.dataset.editid;
+if (editId) await updatePlan(editId, fields); else await createPlan(fields);
+closeModal();
+}
+else if (act==='submit-todo') {
+const tagsRaw = document.getElementById('m-tags').value.trim();
+const fields = {
+title: document.getElementById('m-title').value.trim(),
+deadline: document.getElementById('m-deadline').value || null,
+priority: document.getElementById('m-priority').value || null,
+tags: tagsRaw ? tagsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [],
+estimated_minutes: parseInt(document.getElementById('m-estmin').value || '0', 10),
+};
+if (!fields.title) { alert('제목을 채워주세요.'); return; }
+const editId = el.dataset.editid;
+if (editId) await updateTodo(editId, fields); else await createTodo(fields);
+closeModal();
+}
+else if (act==='submit-log') {
+const todoId = el.dataset.id;
+const startedRaw = document.getElementById('m-started').value;
+const endedRaw = document.getElementById('m-ended').value;
+const started = startedRaw ? new Date(startedRaw).toISOString() : null;
+const ended = endedRaw ? new Date(endedRaw).toISOString() : null;
+let actual = document.getElementById('m-actual').value;
+actual = actual ? parseInt(actual,10) : (started && ended ? Math.round((new Date(ended)-new Date(started))/60000) : null);
+const blocker = document.getElementById('m-blocker').value.trim() || null;
+await addExecRecord(todoId, {started_at:started, ended_at:ended, actual_minutes:actual, blocker_reason:blocker});
+}
+};
+});
+if (state.modal.type==='new-plan') {
+sb.from('review_feedback').select('*').is('consumed_at', null).order('created_at',{ascending:false}).limit(1).then(({data})=>{
+const hint = document.getElementById('carried-hint');
+if (!hint) return;
+hint.textContent = (data && data[0]) ? ('이전 회고에서 넘어온 점: ' + data[0].note) : '아직 넘어온 회고 메모가 없습니다.';
+});
+}
+}
+function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+
+/* ---------------------------- 시작 ------------------------------------ */
+async function init(){
+await refreshPlans();
+await refreshTodos();
+if (state.currentPlanId) await computeReview(state.currentPlanId);
+render();
+}
+init();
+</script>
+</body>
+</html>
+
