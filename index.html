@@ -329,7 +329,7 @@ else if (state.tab==='todo') main.innerHTML = renderTodoTab();
 else if (state.tab==='review') main.innerHTML = renderReviewTab();
 else if (state.tab==='export') main.innerHTML = renderExportTab();
 
-if (state.modal) renderModal();
+document.querySelectorAll('.modal-back').forEach(el => el.remove()); if (state.modal) renderModal();
 bindEvents();
 }
 function tabBtn(id,label){
