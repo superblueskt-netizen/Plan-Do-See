@@ -1,0 +1,96 @@
+{
+"$schema": "plando-diary-pds-schema",
+"version": 2,
+"description": "플랜두씨 다이어리 1 (T06) 데이터베이스 계약. 표/항목/관계와 날짜 규칙을 정의한다.",
+"date_rules": {
+"storage": "모든 timestamptz 컬럼은 UTC로 저장한다 (Postgres 기본).",
+"display": "화면 표시와 '지연' 판정 등 날짜 비교는 Asia/Seoul(UTC+9) 기준으로 환산해서 수행한다.",
+"deadline_field": "todos.deadline은 시간이 없는 date 컬럼이며, 사용자가 서울 시간 기준으로 고른 날짜값을 그대로 저장한다.",
+"unit_rule": "estimated_minutes / actual_minutes는 항상 '분' 단위로 저장하고, 화면에는 시간+분으로 환산해서 보여준다. 저장 단위와 표시 단위를 동일한 변환 함수로만 다룬다."
+},
+"tables": {
+"plans": {
+"description": "계획. 사용자가 실제로 세운 계획 1건 = 1행. 수정해도 이 행은 최신 값만 갖고, 이전 값은 plan_revisions에 남는다.",
+"columns": {
+"id": "uuid, PK",
+"title": "text, 계획 제목",
+"period_start": "date, 계획 기간 시작",
+"period_end": "date, 계획 기간 종료",
+"priority": "text, high|medium|low",
+"success_criteria": "text, 성공 기준",
+"estimated_hours": "numeric, 예상 시간(시간 단위)",
+"carried_note": "text nullable, 이전 회고(review_feedback)에서 넘어온 고칠 점 한 줄의 스냅샷",
+"deleted_at": "timestamptz nullable, 소프트 삭제",
+"created_at": "timestamptz",
+"updated_at": "timestamptz, 트리거가 매 수정마다 갱신"
+}
+},
+"plan_revisions": {
+"description": "plans가 UPDATE 되기 직전 값의 스냅샷. DB 트리거(fn_snapshot_plan_before_update)가 자동으로 적재하므로 클라이언트 코드가 빠뜨려도 이력이 남는다.",
+"columns": {
+"id": "uuid, PK",
+"plan_id": "uuid, FK -> plans.id",
+"title / period_start / period_end / priority / success_criteria / estimated_hours": "수정 전 값 스냅샷",
+"revised_at": "timestamptz, 스냅샷이 찍힌 시각(=수정이 일어난 시각)"
+},
+"relation": "plans.id 1 : N plan_revisions.plan_id"
+},
+"todos": {
+"description": "계획에 딸린 할 일.",
+"columns": {
+"id": "uuid, PK",
+"plan_id": "uuid, FK -> plans.id",
+"title": "text",
+"deadline": "date nullable",
+"priority": "text nullable, high|medium|low",
+"tags": "text[], 기본 빈 배열",
+"estimated_minutes": "integer, 분 단위",
+"status": "text, in_progress|done",
+"completed_at": "timestamptz nullable, status가 done으로 바뀐 시각",
+"deleted_at": "timestamptz nullable, 소프트 삭제 (완전 삭제 대신 사용, 돌아보기 집계의 '지우지 않은 할 일' 기준이 됨)",
+"created_at": "timestamptz",
+"updated_at": "timestamptz"
+},
+"relation": "plans.id 1 : N todos.plan_id"
+},
+"execution_records": {
+"description": "실행 기록. kind='session'은 실제로 일한 시작/종료/걸린 시간/막힌 이유(여러 건 가능), kind='completion'은 완료 처리 이벤트 1건(조건부 UPDATE가 실제로 todos.status를 바꿨을 때만 삽입되어 중복 방지).",
+"columns": {
+"id": "uuid, PK",
+"todo_id": "uuid, FK -> todos.id",
+"kind": "text, session|completion",
+"started_at": "timestamptz nullable",
+"ended_at": "timestamptz nullable",
+"actual_minutes": "integer nullable, 분 단위",
+"blocker_reason": "text nullable, 비어있지 않으면 '막힘'으로 집계",
+"created_at": "timestamptz"
+},
+"relation": "todos.id 1 : N execution_records.todo_id",
+"idempotency": "완료 처리는 'UPDATE todos SET status=done WHERE id=:id AND status<>done' 조건부 갱신을 먼저 수행하고, 실제로 갱신된 행이 있을 때만 execution_records(kind=completion) 1건을 삽입한다. 연속 두 번 클릭해도 두 번째 UPDATE는 영향받는 행이 0건이므로 기록도, 집계도 늘지 않는다."
+},
+"review_feedback": {
+"description": "돌아보기에서 정한 '다음 계획으로 넘길 한 줄'. 새 계획을 만들 때 가장 최근의 미소비(consumed_at is null) 행을 읽어 plans.carried_note로 스냅샷하고 consumed_at을 채운다.",
+"columns": {
+"id": "uuid, PK",
+"plan_id": "uuid nullable, FK -> plans.id, 어느 계획을 보며 남긴 회고인지",
+"note": "text, 고칠 점 한 줄",
+"consumed_at": "timestamptz nullable, 다음 계획 생성 시 carried_note로 옮겨지면 채워짐",
+"created_at": "timestamptz"
+}
+}
+},
+"aggregation_rules": {
+"plan_count": "select count(*) from todos where plan_id=:id and deleted_at is null",
+"done_count": "select count(*) from todos where plan_id=:id and deleted_at is null and status='done'",
+"delayed_count": "select count(*) from todos where plan_id=:id and deleted_at is null and status<>'done' and deadline < (오늘 날짜, Asia/Seoul 기준)",
+"blocked_count": "select count(distinct todo_id) from execution_records join todos on todos.id=execution_records.todo_id where todos.plan_id=:id and execution_records.kind='session' and coalesce(blocker_reason,'')<>''",
+"estimated_minutes_sum": "select coalesce(sum(estimated_minutes),0) from todos where plan_id=:id and deleted_at is null",
+"actual_minutes_sum": "select coalesce(sum(actual_minutes),0) from execution_records join todos on todos.id=execution_records.todo_id where todos.plan_id=:id and execution_records.kind='session'",
+"diff_minutes": "actual_minutes_sum - estimated_minutes_sum"
+},
+"security": {
+"auth": "이번 과제 범위에는 로그인이 없다. Row Level Security는 모든 테이블에서 anon 역할에 대해 읽기/쓰기를 모두 허용하는 정책(anon_all_*)으로 열려 있다. 링크를 아는 사람은 누구나 읽고 쓸 수 있다는 뜻이며, 잠그는 작업은 7번 과제에서 진행한다.",
+"secrets": "클라이언트는 Supabase anon(public) key만 사용한다. anon key는 RLS로 보호되는 한 브라우저에 노출되어도 되는 공개 키이며, service_role key는 어디에도 포함하지 않는다."
+}
+}
+
