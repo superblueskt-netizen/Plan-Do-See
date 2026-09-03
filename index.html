@@ -60,11 +60,21 @@ th{color:var(--muted);font-weight:600;font-size:12.5px;}
 .config-warning{max-width:640px;margin:60px auto;padding:24px;background:#fff;border:1px solid #e8cf9c;border-radius:10px;}
 .drill-back{margin-bottom:10px;}
 code{background:#f1ece3;padding:1px 5px;border-radius:4px;font-size:12.5px;}
+.auth-wrap{max-width:400px;margin:60px auto;padding:0 20px;}
+.auth-wrap h1{font-size:22px;margin:0 0 6px;}
+.auth-tabs{display:flex;gap:6px;margin:16px 0 12px;border-bottom:1px solid var(--line);}
+.auth-tabs button{background:none;border:none;padding:9px 14px;font-size:14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;}
+.auth-tabs button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+.auth-msg{font-size:13px;border-radius:6px;padding:9px 11px;margin-bottom:10px;}
+.auth-msg.err{background:#fbe4de;color:var(--danger);}
+.auth-msg.ok{background:#e3f0e5;color:var(--ok);}
+.who{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);}
+.daytable td.rule{background:#fff4e0;color:#5c4419;font-size:12.5px;}
 </style>
 </head>
 <body>
 
-<div class="banner">지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요.</div>
+<div class="banner" id="top-banner">로그인한 사람만 자기 기록을 볼 수 있습니다. 로그인 전에는 어떤 기록도 보이지 않습니다.</div>
 
 <div id="app"></div>
 
@@ -117,6 +127,12 @@ function uid(){ return 'id-' + Math.random().toString(36).slice(2,10); }
 
 /* ---------------------------- 상태 ------------------------------------ */
 const state = {
+session: null,
+authMode: 'login',
+authMsg: null,
+authBusy: false,
+ruleChanges: [],
+dayRows: [],
 tab: 'plan',
 plans: [],
 currentPlanId: null,
@@ -130,6 +146,71 @@ drilldown: null,
 review: null,
 loading: false,
 };
+
+/* ---------------------------- 인증 (T07) -------------------------------- */
+/* 비밀번호는 이 코드에서 절대 보관하지 않습니다. supabase-js가 HTTPS로
+/auth/v1 에 넘기고, 저장은 Supabase Auth(GoTrue)가 bcrypt로 합니다.     */
+async function doSignUp(email, password){
+state.authBusy = true; state.authMsg = null; renderAuth();
+const { data, error } = await sb.auth.signUp({ email, password });
+state.authBusy = false;
+if (error) { state.authMsg = {type:'err', text: error.message}; renderAuth(); return; }
+if (data.session) { state.session = data.session; await bootAfterLogin(); return; }
+state.authMode = 'login';
+state.authMsg = {type:'ok', text:'가입이 끝났습니다. 같은 이메일과 비밀번호로 로그인해 주세요.'};
+renderAuth();
+}
+
+async function doSignIn(email, password){
+state.authBusy = true; state.authMsg = null; renderAuth();
+const { data, error } = await sb.auth.signInWithPassword({ email, password });
+state.authBusy = false;
+if (error) {
+/* 아이디가 없을 때와 비밀번호만 틀렸을 때의 문구를 하나로 통일한다 (T07-C99) */
+state.authMsg = {type:'err', text:'이메일 또는 비밀번호가 올바르지 않습니다.'};
+renderAuth(); return;
+}
+state.session = data.session;
+await bootAfterLogin();
+}
+
+async function doSignOut(){
+await sb.auth.signOut();
+state.session = null;
+state.plans = []; state.todos = []; state.review = null;
+state.execByTodo = {}; state.planRevisions = []; state.ruleChanges = []; state.dayRows = [];
+state.currentPlanId = null; state.tab = 'plan'; state.modal = null; state.drilldown = null;
+state.authMode = 'login';
+state.authMsg = {type:'ok', text:'로그아웃했습니다.'};
+renderAuth();
+}
+
+async function deleteMyAccount(){
+if (!confirm('계정과 내 자료 전체가 지워집니다. 되돌릴 수 없습니다. 계속할까요?')) return;
+if (!confirm('정말로 지울까요? 이 작업은 취소할 수 없습니다.')) return;
+const { error } = await sb.rpc('delete_my_account');
+if (error) { alert('계정 삭제 실패: ' + error.message); return; }
+await sb.auth.signOut();
+state.session = null;
+state.authMode = 'login';
+state.authMsg = {type:'ok', text:'계정과 자료가 모두 지워졌습니다.'};
+renderAuth();
+}
+
+async function bootAfterLogin(){
+await refreshPlans();
+await refreshTodos();
+await refreshRuleChanges();
+if (state.currentPlanId) await computeReview(state.currentPlanId);
+state.authMsg = null;
+render();
+}
+
+async function refreshRuleChanges(){
+const { data, error } = await sb.from('plan_rule_changes').select('*').order('changed_at', {ascending:true});
+if (error) { console.error(error); return; }
+state.ruleChanges = data || [];
+}
 
 async function refreshPlans(){
 const { data, error } = await sb.from('plans').select('*').is('deleted_at', null).order('created_at', {ascending:false}).order('id');
@@ -288,7 +369,7 @@ render();
 
 /* ---------------------------- 내보내기 ---------------------------------- */
 async function exportAll(){
-const tables = ['plans','plan_revisions','todos','execution_records','review_feedback'];
+const tables = ['plans','plan_revisions','todos','execution_records','review_feedback','plan_rule_changes'];
 const out = { exported_at: new Date().toISOString(), exported_at_kst: toKST(new Date().toISOString()) };
 for (const t of tables){
 const { data, error } = await sb.from(t).select('*');
@@ -311,12 +392,57 @@ await computeReview(state.currentPlanId);
 render();
 }
 
+function renderAuth(){
+document.querySelectorAll('.modal-back').forEach(el => el.remove());
+const isLogin = state.authMode === 'login';
+app.innerHTML = `
+<div class="auth-wrap">
+<h1>플랜두씨 다이어리 2</h1>
+<div class="sub">내 계획과 기록은 로그인한 뒤에만 보입니다.</div>
+<div class="auth-tabs">
+<button class="${isLogin?'active':''}" data-auth="mode-login">로그인</button>
+<button class="${!isLogin?'active':''}" data-auth="mode-signup">가입</button>
+</div>
+<div class="card">
+${state.authMsg ? `<div class="auth-msg ${state.authMsg.type}">${esc(state.authMsg.text)}</div>` : ''}
+<div class="field"><label>이메일</label><input id="a-email" type="email" autocomplete="username" placeholder="you@example.com"/></div>
+<div class="field"><label>비밀번호</label><input id="a-pw" type="password" autocomplete="${isLogin?'current-password':'new-password'}" placeholder="6자 이상"/></div>
+<button class="btn" data-auth="${isLogin?'do-login':'do-signup'}" ${state.authBusy?'disabled':''}>
+${state.authBusy ? '처리 중...' : (isLogin ? '로그인' : '가입하고 시작하기')}
+</button>
+</div>
+<div class="meta">비밀번호는 이 앱이 보관하지 않습니다. Supabase Auth가 bcrypt로 되돌릴 수 없게 바꿔 저장합니다.</div>
+</div>
+`;
+app.querySelectorAll('[data-auth]').forEach(el => {
+el.onclick = async () => {
+const a = el.dataset.auth;
+if (a === 'mode-login') { state.authMode='login'; state.authMsg=null; renderAuth(); return; }
+if (a === 'mode-signup') { state.authMode='signup'; state.authMsg=null; renderAuth(); return; }
+const email = (document.getElementById('a-email').value || '').trim();
+const pw = document.getElementById('a-pw').value || '';
+if (!email || !pw) { state.authMsg = {type:'err', text:'이메일과 비밀번호를 모두 채워주세요.'}; renderAuth(); return; }
+if (a === 'do-login') await doSignIn(email, pw);
+else await doSignUp(email, pw);
+};
+});
+const pwEl = document.getElementById('a-pw');
+if (pwEl) pwEl.onkeydown = e => {
+if (e.key === 'Enter') app.querySelector(`[data-auth="${state.authMode==='login'?'do-login':'do-signup'}"]`).click();
+};
+}
+
 function render(){
+if (!state.session) { renderAuth(); return; }
 const p = state.plans.find(x=>x.id===state.currentPlanId);
 app.innerHTML = `
 <header class="app">
-<h1>플랜두씨 다이어리 1</h1>
+<h1>플랜두씨 다이어리 2</h1>
 <div class="sub">계획(Plan) → 실제로 한 일(Do) → 돌아보기(See)가 하나로 이어지는 다이어리</div>
+<div class="who">
+<span>${esc(state.session.user.email)} 님으로 로그인됨</span>
+<button class="btn ghost" data-act="logout">로그아웃</button>
+</div>
 </header>
 <nav class="tabs">
 ${tabBtn('plan','계획')}${tabBtn('todo','할 일')}${tabBtn('review','돌아보기')}${tabBtn('export','내보내기')}
@@ -460,6 +586,7 @@ return `
 </div>
 <div class="meta" style="margin-top:8px;">기준일(서울 시간): ${r.today}</div>
 </div>
+${renderDailyLog()}
 <div class="card">
 <strong>다음 계획으로 넘길 한 줄</strong>
 <div class="field" style="margin-top:8px;">
@@ -470,6 +597,60 @@ ${r.feedback.length ? `<div style="margin-top:10px;">` + r.feedback.map(f=>`<div
 </div>
 `;
 }
+/* ---- 5일 기록 + 규칙 변경 (T07 카드5) ---------------------------------- */
+function seoulDateOf(ts){
+if (!ts) return '';
+return new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date(ts));
+}
+/* 계산 규칙: 그날(서울 날짜)에 시작한 session 기록의 actual_minutes 합.
+값이 빠지면 0으로 셈. 중복 기록은 지우지 않고 그대로 합산. 튀는 값도 빼지 않고 그대로 둔다.
+평균은 소수점 첫째 자리에서 반올림. 주 시작 요일은 월요일. */
+function computeDayRows(sessions){
+const map = {};
+(sessions || []).forEach(s => {
+const d = seoulDateOf(s.started_at || s.created_at);
+if (!d) return;
+if (!map[d]) map[d] = {date:d, minutes:0, count:0};
+map[d].minutes += (s.actual_minutes || 0);
+map[d].count += 1;
+});
+return Object.values(map).sort((a,b)=> a.date < b.date ? -1 : 1);
+}
+
+function renderDailyLog(){
+const rows = computeDayRows(state.review ? state.review.sessions : []);
+if (!rows.length) return '';
+const rc = state.ruleChanges[0] || null;
+const total = rows.reduce((a,r)=>a+r.minutes, 0);
+const avg = Math.round((total / rows.length) * 10) / 10;
+
+let before = [], after = [];
+if (rc) {
+before = rows.filter(r => r.date < seoulDateOf(rc.changed_at));
+after  = rows.filter(r => r.date >= seoulDateOf(rc.changed_at));
+}
+const sum = a => a.reduce((x,r)=>x+r.minutes, 0);
+const mean = a => a.length ? Math.round((sum(a)/a.length)*10)/10 : 0;
+
+let body = '';
+rows.forEach((r, i) => {
+if (rc && seoulDateOf(rc.changed_at) === r.date) {
+body += `<tr><td class="rule" colspan="4">⟶ ${toKST(rc.changed_at)} 계획 규칙 변경 · ${esc(rc.before_value)} → ${esc(rc.after_value)} · 이유: ${esc(rc.reason)}</td></tr>`;
+}
+body += `<tr><td>${i+1}일차</td><td>${esc(r.date)}</td><td>${r.minutes}분</td><td>${r.count}건</td></tr>`;
+});
+
+return `
+<div class="card">
+<strong>5일 기록 — 하루 실제 작업 시간(분)</strong>
+<p class="meta">질문: 하루에 실제로 브랜딩 작업에 쓰는 시간이 계획한 만큼 나오는가? · 지표: 하루 실제 작업 시간 · 단위: 분 ·
+계산 규칙: 그날(서울 날짜) 시작한 세션의 실제 시간 합, 빠진 값은 0, 중복·튀는 값은 지우지 않고 그대로 합산, 평균은 소수점 첫째 자리 반올림, 주 시작은 월요일</p>
+<table class="daytable"><tr><th>차수</th><th>날짜(서울)</th><th>실제 작업 시간</th><th>기록 건수</th></tr>${body}</table>
+<div class="meta" style="margin-top:8px;">합계 ${total}분 · 평균 ${avg}분 (${rows.length}일)</div>
+${rc ? `<div class="meta">규칙 변경 전 ${before.length}일 평균 ${mean(before)}분 → 변경 후 ${after.length}일 평균 ${mean(after)}분 (같은 지표·같은 단위·같은 계산 규칙)</div>` : ''}
+</div>`;
+}
+
 function renderDrilldown(){
 const r = state.review; const d = state.drilldown;
 let rowsHtml = '';
@@ -495,8 +676,13 @@ return `<div class="card drill-back"><button class="btn secondary" data-act="dri
 function renderExportTab(){
 return `<div class="card">
 <strong>내 자료 내보내기</strong>
-<p class="meta">계획·할 일·실행 기록·돌아보기 메모를 파일 하나(JSON)로 내려받습니다.</p>
+<p class="meta">내 계정에 들어 있는 계획·할 일·실행 기록·돌아보기 메모·규칙 변경을 파일 하나(JSON)로 내려받습니다. 남의 자료는 서버에서 애초에 내려오지 않습니다.</p>
 <button class="btn" data-act="export-all">전체 자료 내보내기</button>
+</div>
+<div class="card">
+<strong>계정 삭제</strong>
+<p class="meta">계정을 지우면 이 계정에 들어 있는 계획·할 일·실행 기록·돌아보기 메모·규칙 변경이 <strong>모두 함께 지워집니다</strong>. 되돌릴 수 없습니다.</p>
+<button class="btn danger" data-act="delete-account">내 계정과 자료 전부 삭제</button>
 </div>`;
 }
 
@@ -601,6 +787,8 @@ else if (act==='complete-todo') completeTodo(id, el);
 else if (act==='revert-todo') revertTodo(id);
 else if (act==='delete-todo') deleteTodo(id);
 else if (act==='export-all') exportAll();
+else if (act==='logout') doSignOut();
+else if (act==='delete-account') deleteMyAccount();
 else if (act==='save-review-note') { const v = document.getElementById('review-note').value; await saveReviewNote(state.currentPlanId, v); }
 else if (act==='drill') { state.drilldown = {kind: el.dataset.kind}; render(); }
 else if (act==='drill-back') { state.drilldown = null; render(); }
@@ -678,11 +866,26 @@ function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout
 
 /* ---------------------------- 시작 ------------------------------------ */
 async function init(){
-await refreshPlans();
-await refreshTodos();
-if (state.currentPlanId) await computeReview(state.currentPlanId);
-render();
+/* 세션이 없으면 자료를 한 건도 부르지 않고 로그인 화면만 그린다 (T07-C97) */
+const { data } = await sb.auth.getSession();
+state.session = data.session || null;
+if (!state.session) { renderAuth(); return; }
+await bootAfterLogin();
 }
+
+/* 다른 탭에서 로그아웃하거나 토큰이 만료되면 즉시 로그인 화면으로 되돌린다 */
+sb.auth.onAuthStateChange((event, session) => {
+if (event === 'SIGNED_OUT' || !session) {
+if (state.session) {
+state.session = null;
+state.plans = []; state.todos = []; state.review = null;
+state.execByTodo = {}; state.planRevisions = []; state.ruleChanges = [];
+state.currentPlanId = null; state.modal = null; state.drilldown = null;
+renderAuth();
+}
+}
+});
+
 init();
 </script>
 </body>
