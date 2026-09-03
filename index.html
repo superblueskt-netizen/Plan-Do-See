@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>플랜두씨 다이어리 1</title>
+<title>플랜두씨 다이어리 2</title>
 <style>
 :root{
 --bg:#faf8f5; --panel:#ffffff; --ink:#2b2620; --muted:#7a7268;
@@ -81,9 +81,9 @@ code{background:#f1ece3;padding:1px 5px;border-radius:4px;font-size:12.5px;}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 /* =========================================================================
-설정 — Supabase 프로젝트 생성 후 아래 두 값만 채우면 바로 동작합니다.
-anon(public) key는 RLS 정책으로 보호되는 "공개용" 키이며 브라우저에
-그대로 노출되어도 되는 값입니다. service_role 키는 절대 여기 넣지 않습니다.
+설정 — Supabase 프로젝트 값. anon(public) key는 RLS 정책으로 보호되는
+"공개용" 키이며 브라우저에 그대로 노출되어도 되는 값입니다.
+service_role 키는 절대 여기 넣지 않습니다.
 ========================================================================= */
 const SUPABASE_URL = "https://ahyhrwwhewfivwfxwowc.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable__VWW3IRDFWyLg3axyhiOCA_Mir35LQV";
@@ -93,9 +93,7 @@ const app = document.getElementById('app');
 if (!SUPABASE_URL || SUPABASE_URL.startsWith('__') || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.startsWith('__')) {
 app.innerHTML = `<div class="config-warning">
 <h2>설정이 필요합니다</h2>
-<p>이 파일 상단의 <code>SUPABASE_URL</code>과 <code>SUPABASE_ANON_KEY</code> 값을 본인의 Supabase 프로젝트 값으로 바꿔주세요.
-(Supabase 대시보드 → Project Settings → API)</p>
-<p>그리고 <code>supabase-schema.sql</code>과 <code>seed.sql</code>을 SQL Editor에서 순서대로 실행해야 합니다.</p>
+<p>이 파일 상단의 <code>SUPABASE_URL</code>과 <code>SUPABASE_ANON_KEY</code> 값을 본인의 Supabase 프로젝트 값으로 바꿔주세요.</p>
 </div>`;
 throw new Error('Supabase config missing');
 }
@@ -117,7 +115,9 @@ return new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', year:'numeric', 
 }
 function minutesToLabel(min){
 if (min === null || min === undefined) return '-';
-const sign = min < 0 ? '-' : ''; const abs = Math.abs(min); const h = Math.floor(abs/60), m = abs%60;
+const sign = min < 0 ? '-' : '';
+const abs = Math.abs(min);
+const h = Math.floor(abs/60), m = abs%60;
 if (h && m) return `${sign}${h}시간 ${m}분`;
 if (h) return `${sign}${h}시간`;
 return `${sign}${m}분`;
@@ -149,7 +149,7 @@ loading: false,
 
 /* ---------------------------- 인증 (T07) -------------------------------- */
 /* 비밀번호는 이 코드에서 절대 보관하지 않습니다. supabase-js가 HTTPS로
-/auth/v1 에 넘기고, 저장은 Supabase Auth(GoTrue)가 bcrypt로 합니다.     */
+/auth/v1 에 넘기고, 저장은 Supabase Auth(GoTrue)가 bcrypt로 합니다. */
 async function doSignUp(email, password){
 state.authBusy = true; state.authMsg = null; renderAuth();
 const { data, error } = await sb.auth.signUp({ email, password });
@@ -454,8 +454,8 @@ if (state.tab==='plan') main.innerHTML = renderPlanTab();
 else if (state.tab==='todo') main.innerHTML = renderTodoTab();
 else if (state.tab==='review') main.innerHTML = renderReviewTab();
 else if (state.tab==='export') main.innerHTML = renderExportTab();
-
-document.querySelectorAll('.modal-back').forEach(el => el.remove()); if (state.modal) renderModal();
+document.querySelectorAll('.modal-back').forEach(el => el.remove());
+if (state.modal) renderModal();
 bindEvents();
 }
 function tabBtn(id,label){
@@ -582,7 +582,6 @@ return `
 <div class="stat"><div class="lbl">예상 시간 합</div><button class="linknum" data-act="drill" data-kind="time" style="font-size:16px;">${minutesToLabel(r.estimatedSum)}</button></div>
 <div class="stat"><div class="lbl">실제 시간 합</div><button class="linknum" data-act="drill" data-kind="time" style="font-size:16px;">${minutesToLabel(r.actualSum)}</button></div>
 <div class="stat"><div class="lbl">차이(실제-예상)</div><button class="linknum" data-act="drill" data-kind="time" style="font-size:16px;color:${r.diff>0?'var(--danger)':'var(--ok)'};">${r.diff>=0?'+':''}${minutesToLabel(r.diff)}</button></div>
-
 </div>
 <div class="meta" style="margin-top:8px;">기준일(서울 시간): ${r.today}</div>
 </div>
@@ -627,7 +626,7 @@ const avg = Math.round((total / rows.length) * 10) / 10;
 let before = [], after = [];
 if (rc) {
 before = rows.filter(r => r.date < seoulDateOf(rc.changed_at));
-after  = rows.filter(r => r.date >= seoulDateOf(rc.changed_at));
+after = rows.filter(r => r.date >= seoulDateOf(rc.changed_at));
 }
 const sum = a => a.reduce((x,r)=>x+r.minutes, 0);
 const mean = a => a.length ? Math.round((sum(a)/a.length)*10)/10 : 0;
@@ -890,4 +889,3 @@ init();
 </script>
 </body>
 </html>
-
